@@ -8,12 +8,13 @@ import torch.nn.functional as F
 
 class Encoder(nn.Module):
     
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, encoded_size):
         super(Encoder, self).__init__()
         
         
         #storing variables:
-        self.batch_size = batch_size;
+        self.batch_size = batch_size
+        self.encoded_size = encoded_size
         
         #architecture:
         self.conv1 = nn.Conv2d(in_channels= 3, out_channels= 32, kernel_size= 4, stride= 2)
@@ -28,10 +29,9 @@ class Encoder(nn.Module):
         self.conv4 = nn.Conv2d(in_channels= 64, out_channels= 64, kernel_size= 4, stride= 2)
         self.bn4 = nn.BatchNorm2d(num_features= 64)
         
-        self.fully_connected1 = nn.Linear(in_features= 256, out_features= 256)
+        self.fully_connected1 = nn.Linear(in_features= 6336, out_features= 256)
         self.fully_connected2 = nn.Linear(in_features= 256, out_features= 256)
-        self.fully_connected3 = nn.Linear(in_features= 256, out_features= 20)
-        self.fully_connected4 = nn.Linear(in_features= 20, out_features= 20)
+        self.fully_connected3 = nn.Linear(in_features= 256, out_features= self.encoded_size)
         
     
     def forward(self, images):
@@ -42,13 +42,12 @@ class Encoder(nn.Module):
         out = F.relu(self.bn4(self.conv4(out)))
         
         #flatten vector
-        out = out.view((self.batch_size, 256))
+        out = out.view((self.batch_size, 6336))
         
         #fully connected layers
         out = F.relu(self.fully_connected1(out))
         out = F.relu(self.fully_connected2(out))
         out = F.relu(self.fully_connected3(out))
-        out = F.relu(self.fully_connected4(out))
         
         return out
     
@@ -56,14 +55,15 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
     
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, encoded_size):
         super(Decoder, self).__init__()
         
         #storing variables
         self.batch_size = batch_size
+        self.encoded_size = encoded_size
         
         #architectures
-        self.fully_connected1 = nn.Linear(in_features= 20, out_features= 256)
+        self.fully_connected1 = nn.Linear(in_features= self.encoded_size, out_features= 256)
         self.fully_connected2 = nn.Linear(in_features= 256, out_features= 1024)
         
         self.upconv1 = nn.ConvTranspose2d(in_channels= 64, out_channels= 64, kernel_size= 3, stride= 2)
@@ -79,7 +79,7 @@ class Decoder(nn.Module):
 
     def forward(self, z):
         
-        #z is a vector of length (batch size x 20).
+        #z is a vector of length (batch size x encoded size).
         out = F.relu(self.fully_connected1(z))
         out = F.tanh(self.fully_connected2(out))
         
@@ -88,11 +88,8 @@ class Decoder(nn.Module):
         
         #upconvolution
         out = F.relu(self.bn1(self.upconv1(out)))
-        print(out.shape)
         out = F.relu(self.bn2(self.upconv2(out)))
-        print(out.shape)
         out = F.relu(self.bn3(self.upconv3(out)))
-        print(out.shape)
         out = self.upconv4(out)
         
         return out
